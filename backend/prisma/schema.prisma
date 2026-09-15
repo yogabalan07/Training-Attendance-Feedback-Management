@@ -1,0 +1,407 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+
+  // For Neon serverless PostgreSQL, point DATABASE_URL at the *pooled*
+  // connection string (ep-<id>.pooler.<region>.neon.tech?sslmode=require)
+  // so Prisma's connection pool is fronted by Neon's pgBouncer-style proxy.
+  // See README "PostgreSQL / Neon setup" for details.
+}
+
+// ─── Roles & Permissions ──────────────────────────────
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // ADMIN, INTERNAL_TRAINER, EXTERNAL_TRAINER, STUDENT, CUSTOM_STAFF
+  displayName String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions            RolePermission[]
+  users                  User[]
+  roleDefaultPermissions RoleDefaultPermission[]
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique // users.view, attendance.mark, etc.
+  category    String // users, students, attendance, feedback, etc.
+  displayName String
+  description String?
+  createdAt   DateTime @default(now())
+
+  rolePermissions        RolePermission[]
+  userPermissions        UserPermission[]
+  roleDefaultPermissions RoleDefaultPermission[]
+}
+
+model RolePermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model RoleDefaultPermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model UserPermission {
+  id           String   @id @default(uuid())
+  userId       String
+  permissionId String
+  granted      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+}
+
+// ─── Users ─────────────────────────────────────────────
+
+model User {
+  id             String    @id @default(uuid())
+  loginId        String    @unique // Email or username for login
+  passwordHash   String
+  name           String
+  role           String // ADMIN, INTERNAL_TRAINER, EXTERNAL_TRAINER, STUDENT, CUSTOM_STAFF
+  departmentId   String?
+  academicYearId String?
+  batchId        String?
+  isActive       Boolean   @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Scope-based access for custom staff / HOD
+  scopeType  String? // ALL, DEPARTMENT, BATCH
+  scopeValue String? // department name or batch id
+
+  // Relations
+  department   Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  batch        Batch?        @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  studentProfile Student?
+  trainerProfile Trainer?
+
+  roleRelation    Role?            @relation(fields: [role], references: [name], onDelete: Restrict)
+  userPermissions UserPermission[]
+
+  auditLogs                  AuditLog[]
+  markedAttendances          Attendance[]        @relation("MarkedBy")
+  submittedAttendances       Attendance[]        @relation("SubmittedBy")
+  assignedTrainerAssignments TrainerAssignment[] @relation("AssignedBy")
+  // Note: SQLite doesn't support composite indexes with @@index syntax the same way.
+  // We use individual indexes for the most common query patterns.
+
+  @@index([departmentId])
+  @@index([role])
+  @@index([batchId])
+}
+
+// ─── Department & Academic Structure ───────────────────
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique // CSE, ECE, EEE, MECH, CIVIL
+  code      String?  @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  academicYears      AcademicYear[]
+  users              User[]
+  students           Student[]
+  batches            Batch[]
+  sessions           Session[]
+  trainerAssignments TrainerAssignment[]
+}
+
+model AcademicYear {
+  id           String   @id @default(uuid())
+  year         Int // 1, 2, 3, 4
+  label        String? // "First Year", "Second Year", etc.
+  departmentId String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department         Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  users              User[]
+  students           Student[]
+  batches            Batch[]
+  sessions           Session[]
+  trainerAssignments TrainerAssignment[]
+
+  @@unique([year, departmentId])
+  @@index([departmentId])
+}
+
+model Batch {
+  id             String   @id @default(uuid())
+  name           String // "Batch 1", "Batch 2", etc.
+  departmentId   String
+  academicYearId String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  department         Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  users              User[]
+  students           Student[]
+  sessionBatches     SessionBatch[]
+  trainerAssignments TrainerAssignment[]
+
+  @@unique([name, departmentId, academicYearId])
+  @@index([departmentId])
+  @@index([academicYearId])
+}
+
+// ─── Students ──────────────────────────────────────────
+
+model Student {
+  id             String   @id @default(uuid())
+  registerNumber String   @unique
+  name           String
+  email          String?
+  phone          String?
+  userId         String?  @unique
+  departmentId   String
+  academicYearId String
+  batchId        String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department   Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  batch        Batch        @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  attendances       Attendance[]
+  feedbackResponses FeedbackResponse[]
+
+  @@index([departmentId])
+  @@index([academicYearId])
+  @@index([batchId])
+  @@index([registerNumber])
+}
+
+// ─── Trainers ──────────────────────────────────────────
+
+model Trainer {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  type           String // INTERNAL, EXTERNAL
+  specialization String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments TrainerAssignment[]
+  sessions    Session[]
+
+  @@index([type])
+}
+
+// ─── Sessions ──────────────────────────────────────────
+
+model Session {
+  id               String   @id @default(uuid())
+  date             DateTime // The date of the session
+  sessionType      String // FORENOON, AFTERNOON
+  startTime        String // "09:30"
+  endTime          String // "12:30"
+  subject          String
+  topic            String?
+  trainerId        String?
+  departmentId     String
+  academicYearId   String
+  attendanceStatus String   @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, SUBMITTED, LOCKED
+  status           String   @default("SCHEDULED") // SCHEDULED, ONGOING, COMPLETED, CANCELLED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  trainer      Trainer?     @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  department   Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  sessionBatches     SessionBatch[]
+  attendances        Attendance[]
+  feedbackResponses  FeedbackResponse[]
+  trainerAssignments TrainerAssignment[]
+
+  @@unique([date, sessionType, departmentId, academicYearId, trainerId])
+  @@index([date])
+  @@index([departmentId])
+  @@index([trainerId])
+  @@index([academicYearId])
+}
+
+model SessionBatch {
+  id        String @id @default(uuid())
+  sessionId String
+  batchId   String
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  batch   Batch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, batchId])
+  @@index([sessionId])
+  @@index([batchId])
+}
+
+// ─── Trainer Assignments ───────────────────────────────
+
+model TrainerAssignment {
+  id             String   @id @default(uuid())
+  trainerId      String
+  batchId        String
+  sessionId      String?
+  departmentId   String
+  academicYearId String
+  assignedBy     String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  trainer        Trainer      @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  batch          Batch        @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  session        Session?     @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  department     Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  assignedByUser User         @relation("AssignedBy", fields: [assignedBy], references: [id], onDelete: Restrict)
+
+  @@unique([trainerId, batchId, sessionId])
+  @@index([trainerId])
+  @@index([batchId])
+  @@index([sessionId])
+}
+
+// ─── Attendance ────────────────────────────────────────
+
+model Attendance {
+  id          String    @id @default(uuid())
+  sessionId   String
+  studentId   String
+  status      String    @default("PENDING") // PRESENT, ABSENT, PENDING, OD
+  markedBy    String // userId of who marked
+  markedAt    DateTime  @default(now())
+  submittedAt DateTime?
+  isSubmitted Boolean   @default(false)
+  reason      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  session         Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student         Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  markedByUser    User    @relation("MarkedBy", fields: [markedBy], references: [id], onDelete: Restrict)
+  submittedByUser User?   @relation("SubmittedBy", fields: [submittedBy], references: [id], onDelete: SetNull)
+  submittedBy     String?
+
+  @@unique([sessionId, studentId])
+  @@index([sessionId])
+  @@index([studentId])
+  @@index([status])
+}
+
+// ─── Feedback ──────────────────────────────────────────
+
+model FeedbackQuestion {
+  id        String   @id @default(uuid())
+  question  String
+  category  String // TRAINER, SESSION, SUBJECT, GENERAL
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  answers FeedbackAnswer[]
+}
+
+model FeedbackResponse {
+  id          String   @id @default(uuid())
+  sessionId   String
+  studentId   String
+  submittedAt DateTime @default(now())
+  comments    String?
+
+  session Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers FeedbackAnswer[]
+
+  @@unique([sessionId, studentId])
+  @@index([sessionId])
+  @@index([studentId])
+}
+
+model FeedbackAnswer {
+  id         String @id @default(uuid())
+  responseId String
+  questionId String
+  rating     Int // 1 to 5
+
+  response FeedbackResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question FeedbackQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+  @@index([responseId])
+  @@index([questionId])
+}
+
+// ─── Audit Logs ────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String // LOGIN, LOGOUT, CREATE, UPDATE, DELETE, ATTENDANCE_MARK, etc.
+  entity    String // USER, STUDENT, SESSION, ATTENDANCE, etc.
+  entityId  String?
+  oldValue  String? // JSON string
+  newValue  String? // JSON string
+  reason    String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─── System Settings ───────────────────────────────────
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  category  String // ATTENDANCE, FEEDBACK, GENERAL, SECURITY
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
