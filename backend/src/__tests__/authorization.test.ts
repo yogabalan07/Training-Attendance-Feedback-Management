@@ -19,8 +19,8 @@ describe('Authorization – critical security tests', () => {
       .set(authHeader(token));
 
     expect(me.status).toBe(200);
-    expect(me.body.user.id).toBe(user.id);
-    expect(me.body.user.loginId).toBe('2023cse001@student');
+    expect(me.body.data.id).toBe(user.id);
+    expect(me.body.data.loginId).toBe('2023cse001@student');
   });
 
   // ──────────────────────────────────────────────────────

@@ -18,7 +18,7 @@ export async function loginUser(
       `loginUser failed for ${loginId}: status=${res.status} body=${JSON.stringify(res.body)}`
     );
   }
-  return res.body as LoginResult;
+  return res.body.data as LoginResult;
 }
 
 export function authHeader(token: string): Record<string, string> {

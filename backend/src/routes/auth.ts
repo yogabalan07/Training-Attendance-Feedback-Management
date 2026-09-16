@@ -61,12 +61,15 @@ router.post(
       });
 
       res.json({
-        token,
-        user: {
-          id: user.id,
-          name: user.name,
-          role: user.role,
-          loginId: user.loginId,
+        success: true,
+        data: {
+          token,
+          user: {
+            id: user.id,
+            name: user.name,
+            role: user.role,
+            loginId: user.loginId,
+          },
         },
       });
     } catch (error) {
@@ -119,7 +122,7 @@ router.get(
       }
 
       const { passwordHash: _passwordHash, ...safeUser } = user;
-      res.json({ user: safeUser });
+      res.json({ success: true, data: safeUser });
     } catch (error) {
       next(error);
     }
