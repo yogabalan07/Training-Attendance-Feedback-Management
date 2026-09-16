@@ -67,7 +67,12 @@ const ROLE_DEFAULT_PERMS: Record<string, string[]> = {
     'trainer_assignments.view', 'trainer_assignments.create', 'trainer_assignments.delete',
     'reports.view', 'reports.export',
   ],
-  EXTERNAL_TRAINER: ['attendance.view', 'attendance.mark', 'feedback.view'],
+  EXTERNAL_TRAINER: [
+    'students.view', 'sessions.view',
+    'attendance.view', 'attendance.mark', 'attendance.update', 'attendance.export',
+    'feedback.view', 'feedback.export',
+    'trainer_assignments.view', 'reports.view',
+  ],
   STUDENT: ['students.view'],
   CUSTOM_STAFF: [],
 };

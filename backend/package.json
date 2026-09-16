@@ -9,6 +9,7 @@
     "migrate": "npx prisma migrate dev",
     "migrate:prod": "npx prisma migrate deploy",
     "seed": "npx tsx src/seed.ts",
+    "seed:demo": "npx tsx src/seed-demo.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts",

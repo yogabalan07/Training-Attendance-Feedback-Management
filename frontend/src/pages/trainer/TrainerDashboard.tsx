@@ -92,7 +92,7 @@ export default function TrainerDashboard() {
         <div className="stat-card">
           <div className="stat-icon" style={{ background: 'var(--info-light)' }}>⭐</div>
           <div className="stat-content">
-            <h3>{feedbackAnalytics?.averageRating?.toFixed(1) ?? 'N/A'}</h3>
+            <h3>{feedbackAnalytics?.overall?.averageRating?.toFixed(1) ?? 'N/A'}</h3>
             <p>Avg Feedback Rating</p>
           </div>
         </div>
@@ -164,7 +164,7 @@ export default function TrainerDashboard() {
         </div>
       </div>
 
-      {feedbackAnalytics && feedbackAnalytics.trainerRatings && feedbackAnalytics.trainerRatings.length > 0 && (
+      {feedbackAnalytics && feedbackAnalytics.trainerWise && feedbackAnalytics.trainerWise.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">
             <h3>Recent Feedback Summary</h3>
@@ -179,7 +179,7 @@ export default function TrainerDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {feedbackAnalytics.trainerRatings.map((rating) => (
+                {feedbackAnalytics.trainerWise.map((rating) => (
                   <tr key={rating.trainerId}>
                     <td>{rating.trainerName}</td>
                     <td>

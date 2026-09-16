@@ -67,6 +67,9 @@ export interface Student {
   userId: string;
   user?: User;
   registerNumber: string;
+  name?: string;
+  email?: string;
+  phone?: string;
   batchId: string;
   batch?: Batch;
   departmentId?: string;
@@ -144,7 +147,7 @@ export interface Attendance {
   student?: Student;
   sessionId: string;
   session?: Session;
-  status: 'present' | 'absent' | 'late' | 'excused';
+  status: 'present' | 'absent' | 'late' | 'excused' | 'pending';
   markedBy?: string;
   markedByUser?: User;
   submittedBy?: string;
@@ -258,6 +261,8 @@ export interface AttendanceSummary {
   late: number;
   excused: number;
   percentage: number;
+  od?: number;
+  pending?: number;
 }
 
 export interface DashboardStats {
@@ -281,19 +286,38 @@ export interface AttendanceShortage {
 }
 
 export interface FeedbackAnalytics {
-  totalResponses: number;
-  averageRating: number;
-  questionAnalytics: {
+  overall: {
+    averageRating: number;
+    totalResponses: number;
+  };
+  questionWise: {
     questionId: string;
     question: string;
-    averageRating?: number;
+    category: string;
+    averageRating: number;
     responseCount: number;
-    optionCounts?: Record<string, number>;
   }[];
-  trainerRatings?: {
+  trainerWise: {
     trainerId: string;
     trainerName: string;
     averageRating: number;
     responseCount: number;
+  }[];
+  subjectWise: {
+    subject: string;
+    averageRating: number;
+    responseCount: number;
+  }[];
+  batchWise: {
+    batchId: string;
+    batchName: string;
+    averageRating: number;
+    responseCount: number;
+  }[];
+  ratingDistribution: {
+    questionId: string;
+    question: string;
+    distribution: Record<string, number>;
+    total: number;
   }[];
 }

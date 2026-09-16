@@ -37,8 +37,7 @@ export default function AttendanceManagement() {
     try {
       const params: Record<string, string> = {};
       if (sessionFilter) params.sessionId = sessionFilter;
-      const res = await attendanceApi.export(params);
-      const blob = new Blob([res.data]);
+      const blob = await attendanceApi.export(params);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -111,7 +110,7 @@ export default function AttendanceManagement() {
                   <tr key={a.id}>
                     <td>{a.session?.date ? new Date(a.session.date).toLocaleDateString() : '-'}</td>
                     <td>{a.session?.title || '-'}</td>
-                    <td>{a.student?.user?.name || '-'}</td>
+                    <td>{a.student?.user?.name ?? (a.student?.name || '-')}</td>
                     <td>{a.student?.registerNumber || '-'}</td>
                     <td>{a.student?.batch?.name || '-'}</td>
                     <td>{statusBadge(a.status)}</td>

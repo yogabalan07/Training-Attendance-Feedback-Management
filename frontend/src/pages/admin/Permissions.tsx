@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { permissionsApi } from '../../lib/api';
 import type { Permission, Role } from '../../lib/types';
 
-const PERMISSION_CATEGORIES = ['users', 'students', 'trainers', 'departments', 'academic-years', 'batches', 'sessions', 'attendance', 'feedback', 'reports', 'permissions', 'audit-logs', 'settings'];
+const PERMISSION_CATEGORIES = ['users', 'students', 'trainers', 'departments', 'academic-years', 'batches', 'sessions', 'trainer-assignments', 'attendance', 'feedback', 'reports', 'permissions', 'audit-logs', 'settings'];
 
 export default function Permissions() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -71,7 +71,10 @@ export default function Permissions() {
     setError('');
     setSuccess('');
     try {
-      await permissionsApi.updateRole(selectedRole, rolePermissions);
+      const permissionIds = allPermissions
+        .filter((p) => rolePermissions.includes(p.name))
+        .map((p) => p.id);
+      await permissionsApi.updateRole(selectedRole, permissionIds);
       setSuccess('Permissions saved successfully');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {

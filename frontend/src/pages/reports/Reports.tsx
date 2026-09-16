@@ -138,7 +138,7 @@ export default function Reports() {
         blob = await feedbackApi.export(params);
       }
 
-      const url = window.URL.createObjectURL(new Blob([blob]));
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `${type}-report.csv`);
@@ -374,7 +374,7 @@ export default function Reports() {
               <div className="card">
                 <div className="card-body" style={{ textAlign: 'center' }}>
                   <h3 style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--primary)' }}>
-                    {feedbackAnalytics.averageRating.toFixed(1)}
+                    {feedbackAnalytics.overall?.averageRating?.toFixed(1) ?? '0.0'}
                   </h3>
                   <p style={{ color: 'var(--text-secondary)' }}>Average Rating</p>
                 </div>
@@ -382,7 +382,7 @@ export default function Reports() {
               <div className="card">
                 <div className="card-body" style={{ textAlign: 'center' }}>
                   <h3 style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--success)' }}>
-                    {feedbackAnalytics.totalResponses}
+                    {feedbackAnalytics.overall?.totalResponses ?? 0}
                   </h3>
                   <p style={{ color: 'var(--text-secondary)' }}>Total Responses</p>
                 </div>
@@ -390,7 +390,7 @@ export default function Reports() {
             </div>
           )}
 
-          {feedbackAnalytics && feedbackAnalytics.questionAnalytics.length > 0 && (
+          {feedbackAnalytics && feedbackAnalytics.questionWise && feedbackAnalytics.questionWise.length > 0 && (
             <div className="card" style={{ marginBottom: '20px' }}>
               <div className="card-header">
                 <h3>Question Analytics</h3>
@@ -405,7 +405,7 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {feedbackAnalytics.questionAnalytics.map((qa) => (
+                    {feedbackAnalytics.questionWise.map((qa) => (
                       <tr key={qa.questionId}>
                         <td>{qa.question}</td>
                         <td>
@@ -424,7 +424,7 @@ export default function Reports() {
             </div>
           )}
 
-          {feedbackAnalytics && feedbackAnalytics.trainerRatings && feedbackAnalytics.trainerRatings.length > 0 && (
+          {feedbackAnalytics && feedbackAnalytics.trainerWise && feedbackAnalytics.trainerWise.length > 0 && (
             <div className="card">
               <div className="card-header">
                 <h3>Trainer Ratings</h3>
@@ -439,7 +439,7 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {feedbackAnalytics.trainerRatings.map((tr) => (
+                    {feedbackAnalytics.trainerWise.map((tr) => (
                       <tr key={tr.trainerId}>
                         <td>{tr.trainerName}</td>
                         <td>

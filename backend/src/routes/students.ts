@@ -439,7 +439,16 @@ router.get(
         }
       }
 
-      const denominator = totalSessions - od;
+      const [odSetting, pendingSetting] = await Promise.all([
+        prisma.systemSetting.findUnique({ where: { key: 'attendance.od_in_denominator' } }),
+        prisma.systemSetting.findUnique({ where: { key: 'attendance.pending_in_denominator' } }),
+      ]);
+
+      const denominator =
+        present +
+        absent +
+        (odSetting?.value === 'true' ? od : 0) +
+        (pendingSetting?.value === 'true' ? pending : 0);
       const attendancePercentage = denominator > 0 ? (present / denominator) * 100 : 0;
 
       res.json({

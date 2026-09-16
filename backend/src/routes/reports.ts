@@ -479,15 +479,21 @@ router.get(
 
       if (role === 'ADMIN') {
         const [
+          totalUsers,
           totalStudents,
           totalTrainers,
           totalDepartments,
           todaySessions,
           submittedSessions,
-          totalSessions,
+          todaySessionCount,
           shortageCount,
           feedbackCount,
+          totalSessions,
+          completedSessions,
+          activeSessions,
+          recentActivity,
         ] = await Promise.all([
+          prisma.user.count(),
           prisma.student.count({ where: { isActive: true } }),
           prisma.trainer.count(),
           prisma.department.count({ where: { isActive: true } }),
@@ -523,18 +529,51 @@ router.get(
             }).length;
           })(),
           prisma.feedbackResponse.count(),
+          prisma.session.count(),
+          prisma.session.count({ where: { status: 'COMPLETED' } }),
+          prisma.session.count({
+            where: { status: { in: ['SCHEDULED', 'ONGOING'] } },
+          }),
+          prisma.auditLog.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+            include: {
+              user: { select: { id: true, name: true, loginId: true } },
+            },
+          }),
         ]);
+
+        const statusCounts = await prisma.attendance.groupBy({
+          by: ['status'],
+          _count: { _all: true },
+        });
+        const statusMap = Object.fromEntries(
+          statusCounts.map((s) => [s.status, s._count._all])
+        );
+        const presentCount = statusMap.PRESENT ?? 0;
+        const absentCount = statusMap.ABSENT ?? 0;
+        const attendanceRate =
+          presentCount + absentCount > 0
+            ? (presentCount / (presentCount + absentCount)) * 100
+            : 0;
 
         return res.json({
           role: 'ADMIN',
+          totalUsers,
           totalStudents,
           totalTrainers,
           totalDepartments,
           todaySessions,
+          totalSessions,
+          completedSessions,
+          activeSessions,
+          attendanceRate: Math.round(attendanceRate * 100) / 100,
+          feedbackCount,
+          recentActivity,
           attendanceSubmission: {
             submitted: submittedSessions,
-            total: totalSessions,
-            pending: totalSessions - submittedSessions,
+            total: todaySessionCount,
+            pending: todaySessionCount - submittedSessions,
           },
           shortageStudentsCount: shortageCount,
           totalFeedbackResponses: feedbackCount,

@@ -105,6 +105,7 @@ export default function AttendanceMarking() {
     try {
       const payload = {
         sessionId,
+        batchId: session?.batchId,
         records: records
           .filter((r) => r.status !== 'pending')
           .map((r) => ({
@@ -130,6 +131,7 @@ export default function AttendanceMarking() {
     try {
       const payload = {
         sessionId,
+        batchId: session?.batchId,
         records: records
           .filter((r) => r.status !== 'pending')
           .map((r) => ({
@@ -139,7 +141,7 @@ export default function AttendanceMarking() {
           })),
       };
       await attendanceApi.bulkMark(payload);
-      await attendanceApi.submit(sessionId);
+      await attendanceApi.submit(sessionId, session?.batchId);
       setSuccess('Attendance submitted successfully');
       setShowConfirm(false);
       setTimeout(() => navigate(-1), 1500);
